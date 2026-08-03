@@ -1,0 +1,34 @@
+# macOS
+.DS_Store
+
+# Xcode
+ios/**/xcuserdata/
+ios/**/*.xcuserstate
+ios/DerivedData/
+ios/build/
+*.xcuserdatad
+
+# Swift Package Manager
+.build/
+Packages/
+
+# Fastlane
+ios/build/
+ios/fastlane/report.xml
+ios/fastlane/Preview.html
+ios/fastlane/screenshots/
+ios/fastlane/test_output/
+ios/vendor/bundle/
+ios/.bundle/
+
+# Secrets — never commit these
+**/.env
+ios/fastlane/private/*.p8
+*.p8
+*.mobileprovision
+*.cer
+*.certSigningRequest
+
+# CocoaPods / Carthage (if ever added)
+Pods/
+Carthage/Build/

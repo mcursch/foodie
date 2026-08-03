@@ -1,0 +1,13 @@
+# Fastlane match — stores your signing cert + provisioning profile encrypted in a
+# private git repo so CI (and any machine) can reuse them.
+#
+# MATCH_GIT_URL and MATCH_PASSWORD come from the environment (.env locally,
+# GitHub secrets in CI).
+git_url(ENV["MATCH_GIT_URL"])
+storage_mode("git")
+
+type("appstore")
+app_identifier([ENV["APP_IDENTIFIER"]].compact)
+
+# Non-interactive on CI.
+readonly(ENV["CI"] == "true")

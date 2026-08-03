@@ -1,0 +1,8 @@
+# Values are read from ios/fastlane/.env (copy .env.example -> .env and fill in).
+# Falls back to the placeholder bundle id so `fastlane` still loads before setup.
+app_identifier(ENV["APP_IDENTIFIER"] || "com.example.Foodie")
+
+# Apple Developer portal Team ID (10 chars, e.g. ABCDE12345).
+team_id(ENV["DEV_TEAM_ID"]) if ENV["DEV_TEAM_ID"]
+
+# With an App Store Connect API key you do NOT need apple_id / itc_team_id here.

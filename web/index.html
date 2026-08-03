@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+  <title>Foodie — Calorie Tracker</title>
+  <meta name="description" content="A free, private, offline calorie tracker for iOS." />
+
+  <!-- PWA / iOS home-screen support -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#16a34a" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)" />
+
+  <!-- iOS-specific -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Foodie" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">🍎</span>
+        <span class="brand-name">Foodie</span>
+      </div>
+      <button id="dateBtn" class="date-btn" type="button" aria-label="Change day">Today</button>
+    </header>
+
+    <main>
+      <!-- Daily ring / summary -->
+      <section class="summary" aria-label="Daily summary">
+        <div class="ring-wrap">
+          <svg class="ring" viewBox="0 0 120 120" width="180" height="180" aria-hidden="true">
+            <circle class="ring-bg" cx="60" cy="60" r="52" />
+            <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="52" />
+          </svg>
+          <div class="ring-center">
+            <div class="ring-eaten"><span id="eaten">0</span></div>
+            <div class="ring-sub">of <span id="goalLabel">2000</span> kcal</div>
+            <div class="ring-remaining" id="remaining">2000 left</div>
+          </div>
+        </div>
+        <div class="macros" id="macros">
+          <div class="macro"><span class="macro-val" id="pVal">0</span><span class="macro-label">Protein</span></div>
+          <div class="macro"><span class="macro-val" id="cVal">0</span><span class="macro-label">Carbs</span></div>
+          <div class="macro"><span class="macro-val" id="fVal">0</span><span class="macro-label">Fat</span></div>
+        </div>
+      </section>
+
+      <!-- Quick add -->
+      <section class="card">
+        <h2 class="card-title">Add food</h2>
+        <form id="addForm" class="add-form" autocomplete="off">
+          <input id="foodName" class="in in-name" type="text" inputmode="text"
+                 placeholder="Food (e.g. Banana)" required maxlength="60" />
+          <div class="add-grid">
+            <input id="foodKcal" class="in" type="number" inputmode="numeric"
+                   placeholder="kcal" min="0" max="10000" step="1" required />
+            <input id="foodP" class="in" type="number" inputmode="numeric" placeholder="P (g)" min="0" max="1000" step="1" />
+            <input id="foodC" class="in" type="number" inputmode="numeric" placeholder="C (g)" min="0" max="1000" step="1" />
+            <input id="foodF" class="in" type="number" inputmode="numeric" placeholder="F (g)" min="0" max="1000" step="1" />
+          </div>
+          <button class="btn-primary" type="submit">Add</button>
+        </form>
+        <div class="recents" id="recents" aria-label="Recent foods"></div>
+      </section>
+
+      <!-- Log -->
+      <section class="card">
+        <div class="log-head">
+          <h2 class="card-title">Log</h2>
+          <span class="log-count" id="logCount">0 items</span>
+        </div>
+        <ul class="log" id="log"></ul>
+        <p class="empty" id="emptyState">No food logged yet. Add your first item above. 🥑</p>
+      </section>
+    </main>
+
+    <!-- Settings sheet -->
+    <button id="settingsBtn" class="fab" type="button" aria-label="Settings">⚙️</button>
+    <div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
+    <div class="sheet" id="settingsSheet" role="dialog" aria-modal="true" aria-label="Settings" hidden>
+      <div class="sheet-handle"></div>
+      <h2>Daily goal</h2>
+      <label class="field">
+        <span>Calorie goal (kcal)</span>
+        <input id="goalInput" class="in" type="number" inputmode="numeric" min="500" max="10000" step="10" />
+      </label>
+      <div class="sheet-actions">
+        <button id="exportBtn" class="btn-ghost" type="button">Export data</button>
+        <button id="importBtn" class="btn-ghost" type="button">Import data</button>
+      </div>
+      <input id="importFile" type="file" accept="application/json" hidden />
+      <button id="saveSettings" class="btn-primary" type="button">Done</button>
+      <p class="version">Foodie · free & offline · your data stays on this device</p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

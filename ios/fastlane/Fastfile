@@ -1,0 +1,223 @@
+# Foodie — local deploy pipeline (run from ios/ on your Mac).
+#
+#   bundle exec fastlane setup     # one-time: writes your Team ID + Bundle ID into the project
+#   bundle exec fastlane beta      # build + upload to TestFlight
+#   bundle exec fastlane release   # build + upload + submit for App Store review (auto-release on approval)
+#   bundle exec fastlane submit    # submit an already-uploaded build (no rebuild)
+#
+# Config comes from ios/fastlane/.env (see .env.example).
+
+default_platform(:ios)
+
+PROJECT = "Foodie.xcodeproj"
+SCHEME  = "Foodie"
+
+def asc_api_key
+  # CI passes the key as a base64 secret (ASC_KEY_CONTENT); locally we read the
+  # .p8 file (ASC_KEY_PATH). Support both.
+  if ENV["ASC_KEY_CONTENT"] && !ENV["ASC_KEY_CONTENT"].empty?
+    app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_content: ENV.fetch("ASC_KEY_CONTENT"),
+      is_key_content_base64: true,
+      duration: 1200,
+      in_house: false
+    )
+  else
+    app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_filepath: ENV.fetch("ASC_KEY_PATH"),
+      duration: 1200,
+      in_house: false
+    )
+  end
+end
+
+MATCH_PROFILE = "match AppStore #{ENV['APP_IDENTIFIER']}".freeze
+
+# Build for CI using match-provided manual signing (no automatic signing on runners).
+def build_the_app_ci
+  build_app(
+    project: PROJECT,
+    scheme: SCHEME,
+    configuration: "Release",
+    export_method: "app-store",
+    clean: true,
+    output_directory: "build",
+    output_name: "Foodie.ipa",
+    export_options: {
+      method: "app-store",
+      signingStyle: "manual",
+      teamID: ENV.fetch("DEV_TEAM_ID"),
+      provisioningProfiles: {
+        ENV.fetch("APP_IDENTIFIER") => MATCH_PROFILE
+      }
+    }
+  )
+end
+
+# Point the target at the match distribution profile (manual signing) for CI.
+def apply_match_signing
+  update_code_signing_settings(
+    path: PROJECT,
+    use_automatic_signing: false,
+    team_id: ENV.fetch("DEV_TEAM_ID"),
+    bundle_identifier: ENV.fetch("APP_IDENTIFIER"),
+    code_sign_identity: "Apple Distribution",
+    profile_name: MATCH_PROFILE,
+    targets: [SCHEME]
+  )
+end
+
+def build_the_app
+  build_app(
+    project: PROJECT,
+    scheme: SCHEME,
+    configuration: "Release",
+    export_method: "app-store",
+    clean: true,
+    output_directory: "build",
+    output_name: "Foodie.ipa",
+    xcargs: "-allowProvisioningUpdates",
+    export_xcargs: "-allowProvisioningUpdates",
+    export_options: {
+      method: "app-store",
+      signingStyle: "automatic",
+      teamID: ENV["DEV_TEAM_ID"]
+    }
+  )
+end
+
+platform :ios do
+  # ---- One-time project setup ------------------------------------------------
+  desc "Write your Team ID + Bundle ID into the Xcode project (one time)"
+  lane :setup do
+    team   = ENV.fetch("DEV_TEAM_ID")
+    bundle = ENV.fetch("APP_IDENTIFIER")
+
+    update_code_signing_settings(
+      path: PROJECT,
+      use_automatic_signing: true,
+      team_id: team,
+      targets: [SCHEME]
+    )
+
+    # Replace the placeholder bundle id everywhere in the project file.
+    # (sed -i '' is the macOS form.)
+    sh("sed -i '' 's/com\\.example\\.Foodie/#{bundle}/g' ../#{PROJECT}/project.pbxproj")
+
+    UI.success("Project set to team #{team}, bundle id #{bundle}.")
+    UI.message("Commit the change: git add -A && git commit -m 'Configure signing'")
+  end
+
+  # ---- TestFlight ------------------------------------------------------------
+  desc "Build and upload a new build to TestFlight"
+  lane :beta do
+    api_key = asc_api_key
+    bump_build(api_key)
+    build_the_app
+    upload_to_testflight(
+      api_key: api_key,
+      app_identifier: ENV.fetch("APP_IDENTIFIER"),
+      skip_waiting_for_build_processing: true
+    )
+    UI.success("Uploaded to TestFlight. It'll appear after Apple finishes processing (~5-15 min).")
+  end
+
+  # ---- App Store -------------------------------------------------------------
+  desc "Build, upload, and submit for App Store review"
+  lane :release do
+    api_key = asc_api_key
+    bump_build(api_key)
+    build_the_app
+    deliver_and_submit(api_key)
+  end
+
+  desc "Submit an already-uploaded build for review (no rebuild)"
+  lane :submit do
+    api_key = asc_api_key
+    deliver_and_submit(api_key, skip_binary: true)
+  end
+
+  # ---- One-time match setup (run locally once) -------------------------------
+  desc "One-time: create/store the distribution cert + profile in the match repo"
+  lane :certificates do
+    api_key = asc_api_key
+    match(
+      type: "appstore",
+      app_identifier: ENV.fetch("APP_IDENTIFIER"),
+      api_key: api_key,
+      readonly: false # allow creating the cert/profile the first time
+    )
+    UI.success("Distribution cert + profile stored in your match repo. CI can now use them.")
+  end
+
+  # ---- CI lanes (called by GitHub Actions) -----------------------------------
+  desc "CI: build + upload to TestFlight using match signing"
+  lane :ci_beta do
+    api_key = asc_api_key
+    setup_ci # ephemeral keychain on the runner
+    match(type: "appstore", app_identifier: ENV.fetch("APP_IDENTIFIER"),
+          api_key: api_key, readonly: true)
+    apply_match_signing
+    bump_build(api_key)
+    build_the_app_ci
+    upload_to_testflight(
+      api_key: api_key,
+      app_identifier: ENV.fetch("APP_IDENTIFIER"),
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+  desc "CI: build + upload + submit for App Store review using match signing"
+  lane :ci_release do
+    api_key = asc_api_key
+    setup_ci
+    match(type: "appstore", app_identifier: ENV.fetch("APP_IDENTIFIER"),
+          api_key: api_key, readonly: true)
+    apply_match_signing
+    bump_build(api_key)
+    build_the_app_ci
+    deliver_and_submit(api_key)
+  end
+end
+
+# ---- Helpers -----------------------------------------------------------------
+
+# Set the next build number = (latest on TestFlight) + 1. Handles the very first
+# build (no TestFlight builds yet) by starting at 1.
+def bump_build(api_key)
+  latest = begin
+    latest_testflight_build_number(
+      api_key: api_key,
+      app_identifier: ENV.fetch("APP_IDENTIFIER"),
+      initial_build_number: 0
+    )
+  rescue StandardError
+    0
+  end
+  increment_build_number(xcodeproj: PROJECT, build_number: latest + 1)
+end
+
+def deliver_and_submit(api_key, skip_binary: false)
+  upload_to_app_store(
+    api_key: api_key,
+    app_identifier: ENV.fetch("APP_IDENTIFIER"),
+    skip_binary_upload: skip_binary,
+    # Metadata + screenshots are managed in the App Store Connect web UI for the
+    # first launch. Flip these to false later if you want fastlane to manage them.
+    skip_metadata: true,
+    skip_screenshots: true,
+    submit_for_review: true,
+    automatic_release_after_approval: true,
+    precheck_include_in_app_purchases: false,
+    force: true, # don't open the HTML preview / prompt
+    submission_information: {
+      export_compliance_uses_encryption: false, # only standard HTTPS/none -> exempt
+      add_id_info_uses_idfa: false
+    }
+  )
+  UI.success("Submitted for review. It'll auto-release once Apple approves.")
+end

@@ -1,0 +1,86 @@
+name: iOS Release
+
+# Deploy Foodie from CI.
+#   • Push a tag like `v1.0` (or `v1.1`, ...) -> builds & submits to the App Store.
+#   • Or run manually (Actions -> iOS Release -> Run workflow) and pick a lane:
+#       ci_beta    = upload to TestFlight
+#       ci_release = upload + submit for App Store review (auto-release on approval)
+#
+# Signing uses Fastlane match (see ios/DEPLOY.md "GitHub Actions" section for the
+# one-time setup and the list of required repository secrets).
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: "Which lane to run"
+        type: choice
+        default: ci_beta
+        options:
+          - ci_beta
+          - ci_release
+
+concurrency:
+  group: ios-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: macos-14
+    timeout-minutes: 40
+    env:
+      APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
+      DEV_TEAM_ID: ${{ secrets.DEV_TEAM_ID }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+      MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+      # Keep fastlane output readable in CI logs.
+      FASTLANE_HIDE_CHANGELOG: "true"
+      LC_ALL: en_US.UTF-8
+      LANG: en_US.UTF-8
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Set up Ruby + cache gems
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: ios
+
+      - name: Determine lane
+        id: lane
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "lane=${{ inputs.lane }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "lane=ci_release" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fastlane ${{ steps.lane.outputs.lane }}
+        working-directory: ios
+        run: bundle exec fastlane ${{ steps.lane.outputs.lane }}
+
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            ios/fastlane/report.xml
+            ~/Library/Logs/gym/
+          if-no-files-found: ignore
+          retention-days: 7
