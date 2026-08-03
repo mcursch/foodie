@@ -29,9 +29,17 @@ The pipeline is **local Fastlane** with **Xcode automatic signing** (no CI, no
 ### 1. Install Fastlane
 ```bash
 cd ios
-bundle install          # installs fastlane from the Gemfile
+bundle install          # installs fastlane; also GENERATES ios/Gemfile.lock
 bundle exec fastlane --version   # sanity check
 ```
+Commit the generated lock so CI installs are reproducible. For CI runner platform
+coverage, add the macOS platforms once:
+```bash
+bundle lock --add-platform arm64-darwin x86_64-darwin
+git add ios/Gemfile.lock && git commit -m "Add Gemfile.lock"
+```
+> The lock isn't in the repo yet because it must be generated on macOS (to capture
+> the `arm64-darwin` platform). This one-time step is all it needs.
 
 ### 2. Create an App Store Connect API key (used for uploads)
 1. Go to [App Store Connect → Users and Access → Integrations → App Store Connect API](https://appstoreconnect.apple.com/access/integrations/api).

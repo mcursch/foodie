@@ -1,3 +1,5 @@
 source "https://rubygems.org"
 
-gem "fastlane"
+# Pinned for reproducible installs. The committed Gemfile.lock (generate it on your
+# Mac with `bundle install`) pins the full dependency tree exactly.
+gem "fastlane", "~> 2.237"
