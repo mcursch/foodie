@@ -1,0 +1,53 @@
+name: Pages
+
+# Publishes the web/ folder (the PWA + privacy policy) to GitHub Pages.
+# Gives you a public privacy-policy URL for App Store review:
+#   https://mcursch.github.io/foodie/privacy.html
+# and a live web version of the app at:
+#   https://mcursch.github.io/foodie/
+#
+# ONE-TIME ENABLE: repo Settings -> Pages -> Build and deployment ->
+#   Source: "GitHub Actions". Then this workflow deploys on every push to web/.
+#
+# NOTE: GitHub Pages from a PRIVATE repo requires GitHub Pro/Team/Enterprise.
+# On the Free plan, either make the repo public or host the page elsewhere
+# (see ios/STORE_LISTING.md for alternatives).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload web/ as the Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

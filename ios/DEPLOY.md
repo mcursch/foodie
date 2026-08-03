@@ -106,9 +106,10 @@ Apple needs at least one screenshot at the **6.9" iPhone** size (1320×2868) —
 4. Capture 3–5 screens (summary ring, add-food, a filled log).
 5. Upload them to the app version in App Store Connect.
 
-> **Speed tip:** if you're iPhone-only for launch, you avoid iPad screenshots.
-> To drop iPad now, set `TARGETED_DEVICE_FAMILY = 1` in the target build settings
-> (you can re-enable iPad + add its screenshots in a later update).
+> **Already iPhone-only:** the app ships iPhone-only for launch
+> (`TARGETED_DEVICE_FAMILY = 1`), so you only need iPhone screenshots — **no iPad
+> screenshots required**. You can re-enable iPad + add its screenshots in a later
+> update.
 
 ### 8. Metadata
 Fill in: **Description**, **Keywords**, **Support URL**, **Category** (Health &

@@ -26,7 +26,7 @@ Store.
 - Swipe/tap to delete entries
 - Data stored **locally** as JSON in the app's Documents dir — nothing leaves the phone
 - Export / import a JSON backup (via the share sheet & Files)
-- Automatic light & dark mode; iPhone + iPad
+- Automatic light & dark mode; iPhone (iPad support easy to re-enable later)
 
 ### Tech
 - **SwiftUI**, `ObservableObject` store, `Codable` persistence to a JSON file
