@@ -3,7 +3,8 @@ name: iOS Release
 # Deploy Foodie from CI.
 #   • Push a tag like `v1.0` (or `v1.1`, ...) -> builds & submits to the App Store.
 #   • Or run manually (Actions -> iOS Release -> Run workflow) and pick a lane:
-#       ci_beta    = upload to TestFlight
+#       ci_beta    = upload to TestFlight (internal testers only)
+#       ci_friends = upload + distribute to the external group (shareable link)
 #       ci_release = upload + submit for App Store review (auto-release on approval)
 #
 # Signing uses Fastlane match (see ios/DEPLOY.md "GitHub Actions" section for the
@@ -21,6 +22,7 @@ on:
         default: ci_beta
         options:
           - ci_beta
+          - ci_friends
           - ci_release
 
 concurrency:
@@ -40,6 +42,13 @@ jobs:
       MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
       MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+      # Optional (ci_friends). Unset is fine — the lane falls back to sensible
+      # defaults and to whatever Test Information is already in App Store Connect.
+      TESTFLIGHT_GROUP: ${{ vars.TESTFLIGHT_GROUP }}
+      BETA_CONTACT_NAME: ${{ vars.BETA_CONTACT_NAME }}
+      BETA_CONTACT_EMAIL: ${{ vars.BETA_CONTACT_EMAIL }}
+      BETA_CONTACT_PHONE: ${{ secrets.BETA_CONTACT_PHONE }}
+      BETA_FEEDBACK_EMAIL: ${{ vars.BETA_FEEDBACK_EMAIL }}
       # Keep fastlane output readable in CI logs.
       FASTLANE_HIDE_CHANGELOG: "true"
       LC_ALL: en_US.UTF-8

@@ -12,6 +12,10 @@ makes every future update a single command.
 The pipeline is **local Fastlane** with **Xcode automatic signing** (no CI, no
 `match`, no certificates to juggle). You run it from your Mac.
 
+> **Just want friends to install it via a link?** You don't need any of this —
+> see **[`TESTFLIGHT.md`](TESTFLIGHT.md)** for the TestFlight public-link path.
+> Parts A of both runbooks are the same setup, so nothing is wasted either way.
+
 ---
 
 ## Part A — One-time setup (~30–45 min)
@@ -153,10 +157,12 @@ This will:
 > Or click **Submit for Review** in App Store Connect once the build appears.
 
 **Optional dry run first:** push to TestFlight to confirm signing/upload works
-before the real submission:
+before the real submission (internal testers only — no public link):
 ```bash
 bundle exec fastlane beta
 ```
+To hand the build to outside testers via a shareable link instead, use
+`bundle exec fastlane friends` — see [`TESTFLIGHT.md`](TESTFLIGHT.md).
 
 ---
 

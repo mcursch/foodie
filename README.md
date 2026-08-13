@@ -51,12 +51,19 @@ open ios/Foodie.xcodeproj
 > (`ios/project.yml` is the spec.)
 
 ### Ship it (deploy pipeline)
-A full Fastlane deploy pipeline is set up — see **[`ios/DEPLOY.md`](ios/DEPLOY.md)**
-for the step-by-step runbook. Quick version, from `ios/`:
+A full Fastlane deploy pipeline is set up. Two runbooks:
+
+- **[`ios/TESTFLIGHT.md`](ios/TESTFLIGHT.md)** — get it on friends' phones via a
+  shareable TestFlight link. No App Store submission needed.
+- **[`ios/DEPLOY.md`](ios/DEPLOY.md)** — the full App Store launch.
+
+Quick version, from `ios/`:
 ```bash
 bundle install
 bundle exec fastlane setup      # one-time: your Team ID + Bundle ID
-bundle exec fastlane release    # build + upload + submit for review
+bundle exec fastlane preflight  # verify the setup before building
+bundle exec fastlane friends    # build + ship to TestFlight (shareable link)
+bundle exec fastlane release    # build + upload + submit for App Store review
 ```
 For hands-off updates, a **GitHub Actions** workflow
 (`.github/workflows/ios-release.yml`) deploys on a pushed `v*` tag using Fastlane

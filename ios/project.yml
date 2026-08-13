@@ -32,5 +32,8 @@ targets:
         DEVELOPMENT_ASSET_PATHS: '"Foodie/Preview Content"'
         ENABLE_PREVIEWS: "YES"
         TARGETED_DEVICE_FAMILY: "1"
+        # Declares the app exempt from export-compliance questions. Without this,
+        # every TestFlight/App Store build stalls on "Missing Compliance".
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: "NO"
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_UILaunchScreen_Generation: "YES"

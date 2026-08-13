@@ -1,9 +1,11 @@
 # Foodie — local deploy pipeline (run from ios/ on your Mac).
 #
-#   bundle exec fastlane setup     # one-time: writes your Team ID + Bundle ID into the project
-#   bundle exec fastlane beta      # build + upload to TestFlight
-#   bundle exec fastlane release   # build + upload + submit for App Store review (auto-release on approval)
-#   bundle exec fastlane submit    # submit an already-uploaded build (no rebuild)
+#   bundle exec fastlane setup      # one-time: writes your Team ID + Bundle ID into the project
+#   bundle exec fastlane preflight  # check that your setup is complete before you build
+#   bundle exec fastlane friends    # build + ship to the external TestFlight group (shareable link)
+#   bundle exec fastlane beta       # build + upload to TestFlight (internal testers only, fast)
+#   bundle exec fastlane release    # build + upload + submit for App Store review (auto-release on approval)
+#   bundle exec fastlane submit     # submit an already-uploaded build (no rebuild)
 #
 # Config comes from ios/fastlane/.env (see .env.example).
 
@@ -11,6 +13,9 @@ default_platform(:ios)
 
 PROJECT = "Foodie.xcodeproj"
 SCHEME  = "Foodie"
+
+# The external TestFlight group your friends join via the public link.
+TESTFLIGHT_GROUP = (ENV["TESTFLIGHT_GROUP"] || "Friends").freeze
 
 def asc_api_key
   # CI passes the key as a base64 secret (ASC_KEY_CONTENT); locally we read the
@@ -112,8 +117,65 @@ platform :ios do
     UI.message("Commit the change: git add -A && git commit -m 'Configure signing'")
   end
 
+  # ---- Preflight -------------------------------------------------------------
+  desc "Check that your Apple setup is complete before you try to build"
+  lane :preflight do
+    missing = %w[APP_IDENTIFIER DEV_TEAM_ID ASC_KEY_ID ASC_ISSUER_ID].reject do |k|
+      ENV[k] && !ENV[k].empty?
+    end
+    unless missing.empty?
+      UI.user_error!("Missing in ios/fastlane/.env: #{missing.join(', ')}. Copy .env.example -> .env and fill it in.")
+    end
+
+    key_path = ENV["ASC_KEY_PATH"]
+    if (ENV["ASC_KEY_CONTENT"].nil? || ENV["ASC_KEY_CONTENT"].empty?) &&
+       (key_path.nil? || !File.exist?(File.expand_path(key_path, "..")))
+      UI.user_error!("ASC_KEY_PATH points at a missing .p8 (#{key_path.inspect}). Download the key from App Store Connect into ios/fastlane/private/.")
+    end
+    UI.success("✅ .env looks complete.")
+
+    pbxproj = File.read("../#{PROJECT}/project.pbxproj")
+    if pbxproj.include?("com.example.Foodie")
+      UI.user_error!("The project still uses the placeholder bundle id. Run: bundle exec fastlane setup")
+    end
+    unless pbxproj.include?(ENV.fetch("APP_IDENTIFIER"))
+      UI.user_error!("The project's bundle id doesn't match APP_IDENTIFIER (#{ENV.fetch('APP_IDENTIFIER')}). Run: bundle exec fastlane setup")
+    end
+    UI.success("✅ Xcode project is set to #{ENV.fetch('APP_IDENTIFIER')}.")
+
+    # A successful call proves the API key works AND the app record exists.
+    api_key = asc_api_key
+    begin
+      build = latest_testflight_build_number(
+        api_key: api_key,
+        app_identifier: ENV.fetch("APP_IDENTIFIER"),
+        initial_build_number: 0
+      )
+      UI.success("✅ App Store Connect key works. App record found. Latest TestFlight build: #{build}.")
+    rescue StandardError => e
+      UI.user_error!("Couldn't reach the app in App Store Connect: #{e.message}\n" \
+                     "Most likely the app record doesn't exist yet — create it at " \
+                     "https://appstoreconnect.apple.com/apps with bundle id #{ENV.fetch('APP_IDENTIFIER')}.")
+    end
+
+    UI.success("Preflight passed. You're clear to run: bundle exec fastlane friends")
+  end
+
   # ---- TestFlight ------------------------------------------------------------
-  desc "Build and upload a new build to TestFlight"
+  desc "Build and ship to the external TestFlight group (the shareable-link path)"
+  lane :friends do
+    api_key = asc_api_key
+    bump_build(api_key)
+    build_the_app
+    ship_to_external(api_key)
+  end
+
+  desc "Distribute an ALREADY-uploaded build to the external group (no rebuild)"
+  lane :friends_distribute do
+    ship_to_external(asc_api_key, distribute_only: true)
+  end
+
+  desc "Build and upload a new build to TestFlight (internal testers only)"
   lane :beta do
     api_key = asc_api_key
     bump_build(api_key)
@@ -171,6 +233,18 @@ platform :ios do
     )
   end
 
+  desc "CI: build + ship to the external TestFlight group using match signing"
+  lane :ci_friends do
+    api_key = asc_api_key
+    setup_ci
+    match(type: "appstore", app_identifier: ENV.fetch("APP_IDENTIFIER"),
+          api_key: api_key, readonly: true)
+    apply_match_signing
+    bump_build(api_key)
+    build_the_app_ci
+    ship_to_external(api_key)
+  end
+
   desc "CI: build + upload + submit for App Store review using match signing"
   lane :ci_release do
     api_key = asc_api_key
@@ -199,6 +273,63 @@ def bump_build(api_key)
     0
   end
   increment_build_number(xcodeproj: PROJECT, build_number: latest + 1)
+end
+
+# Upload (or re-use) a build and distribute it to the EXTERNAL tester group —
+# the one that can have a public, shareable TestFlight link.
+#
+# External distribution requires a fully processed build, so unlike the internal
+# `beta` lane we have to wait for Apple's processing (~5-15 min) before handing
+# the build to the group.
+#
+# The first external build of each version goes through Apple's Beta App Review
+# (usually well under 24h). Later builds of the same version normally skip it.
+def ship_to_external(api_key, distribute_only: false)
+  contact = ENV["BETA_CONTACT_NAME"].to_s.strip.split(" ", 2)
+  review_info = if ENV["BETA_CONTACT_EMAIL"].to_s.empty? || contact.length < 2 || ENV["BETA_CONTACT_PHONE"].to_s.empty?
+    UI.important("BETA_CONTACT_NAME / _EMAIL / _PHONE not all set in .env — skipping the Beta App Review " \
+                 "contact info. If review info is missing, fill it in once in App Store Connect " \
+                 "(TestFlight -> Test Information) and it sticks for future builds.")
+    nil
+  else
+    {
+      contact_email: ENV.fetch("BETA_CONTACT_EMAIL"),
+      contact_first_name: contact[0],
+      contact_last_name: contact[1],
+      contact_phone: ENV.fetch("BETA_CONTACT_PHONE"),
+      demo_account_required: false,
+      notes: "All data is stored locally on the device. No account, no login, no network calls."
+    }
+  end
+
+  options = {
+    api_key: api_key,
+    app_identifier: ENV.fetch("APP_IDENTIFIER"),
+    distribute_external: true,
+    groups: [TESTFLIGHT_GROUP],
+    notify_external_testers: true,
+    # "What to Test" — shown to testers in the TestFlight app.
+    changelog: ENV["TESTFLIGHT_CHANGELOG"] || "Log a few meals, set your calorie goal, and tell me what feels clunky.",
+    beta_app_description: ENV["BETA_APP_DESCRIPTION"] ||
+      "Foodie is a simple calorie + macro tracker. Everything is stored on your device — no account, no sign-in.",
+    demo_account_required: false,
+    uses_non_exempt_encryption: false
+  }
+  options[:beta_app_feedback_email] = ENV["BETA_FEEDBACK_EMAIL"] unless ENV["BETA_FEEDBACK_EMAIL"].to_s.empty?
+  options[:beta_app_review_info] = review_info if review_info
+
+  if distribute_only
+    options[:distribute_only] = true
+  else
+    options[:skip_waiting_for_build_processing] = false
+    options[:wait_processing_interval] = 30
+  end
+
+  upload_to_testflight(options)
+
+  UI.success("Build is live for the '#{TESTFLIGHT_GROUP}' group.")
+  UI.message("If this is the group's first build it goes to Beta App Review first (usually <24h).")
+  UI.message("Grab the shareable link: App Store Connect -> TestFlight -> #{TESTFLIGHT_GROUP} -> Public Link.")
 end
 
 def deliver_and_submit(api_key, skip_binary: false)
