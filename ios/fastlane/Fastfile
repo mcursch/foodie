@@ -85,12 +85,13 @@ def build_the_app
     clean: true,
     output_directory: "build",
     output_name: "Foodie.ipa",
-    xcargs: "-allowProvisioningUpdates",
-    export_xcargs: "-allowProvisioningUpdates",
     export_options: {
       method: "app-store",
-      signingStyle: "automatic",
-      teamID: ENV["DEV_TEAM_ID"]
+      signingStyle: "manual",
+      teamID: ENV.fetch("DEV_TEAM_ID"),
+      provisioningProfiles: {
+        ENV.fetch("APP_IDENTIFIER") => "Foodie App Store"
+      }
     }
   )
 end
@@ -305,6 +306,7 @@ def ship_to_external(api_key, distribute_only: false)
   options = {
     api_key: api_key,
     app_identifier: ENV.fetch("APP_IDENTIFIER"),
+    app_platform: "ios",
     distribute_external: true,
     groups: [TESTFLIGHT_GROUP],
     notify_external_testers: true,
