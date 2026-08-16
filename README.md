@@ -56,6 +56,8 @@ A full Fastlane deploy pipeline is set up. Two runbooks:
 - **[`ios/TESTFLIGHT.md`](ios/TESTFLIGHT.md)** — get it on friends' phones via a
   shareable TestFlight link. No App Store submission needed.
 - **[`ios/DEPLOY.md`](ios/DEPLOY.md)** — the full App Store launch.
+- **[`ios/CI_SETUP.md`](ios/CI_SETUP.md)** — one-time setup to deploy from GitHub
+  Actions instead of your Mac.
 
 Quick version, from `ios/`:
 ```bash

@@ -226,4 +226,7 @@ For actual friends, the public link is worth the one-time review wait.
 
 ---
 
-For App Store submission (the real, public launch), see [`DEPLOY.md`](DEPLOY.md).
+Related runbooks:
+- [`CI_SETUP.md`](CI_SETUP.md) — ship TestFlight builds from GitHub Actions so you
+  don't need the Mac for routine updates.
+- [`DEPLOY.md`](DEPLOY.md) — App Store submission (the real, public launch).
