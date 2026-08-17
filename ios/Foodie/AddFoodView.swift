@@ -11,6 +11,8 @@ struct AddFoodView: View {
     @State private var carbs = ""
     @State private var fat = ""
     @FocusState private var nameFocused: Bool
+    @State private var showSearch = false
+    @State private var searchStartsScanning = false
 
     private var canAdd: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty && (Int(kcal) ?? 0) > 0
@@ -19,6 +21,30 @@ struct AddFoodView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Add food").font(.headline)
+
+            HStack(spacing: 8) {
+                Button {
+                    searchStartsScanning = false
+                    showSearch = true
+                } label: {
+                    Label("Search foods", systemImage: "magnifyingglass")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                }
+                .buttonStyle(.bordered)
+
+                Button {
+                    searchStartsScanning = true
+                    showSearch = true
+                } label: {
+                    Label("Scan", systemImage: "barcode.viewfinder")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.vertical, 12)
+                        .padding(.horizontal, 4)
+                }
+                .buttonStyle(.bordered)
+            }
 
             TextField("Food (e.g. Banana)", text: $name)
                 .textInputAutocapitalization(.words)
@@ -69,6 +95,10 @@ struct AddFoodView: View {
         .padding(16)
         .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .sheet(isPresented: $showSearch) {
+            FoodSearchView(date: date, startScanning: searchStartsScanning)
+                .environmentObject(store)
+        }
     }
 
     private func numberField(_ placeholder: String, text: Binding<String>) -> some View {

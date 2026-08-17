@@ -1,10 +1,17 @@
 /* Foodie service worker — caches the app shell so it works fully offline. */
-var CACHE = "foodie-v1";
+// Bump this whenever the shell changes — same-origin GETs are served cache-first,
+// so a stale version pins the old app.js/styles.css until the name changes.
+var CACHE = "foodie-v2";
 var ASSETS = [
   "./",
   "index.html",
   "styles.css",
   "app.js",
+  "foods.js",
+  "foodsearch.js",
+  "scanner.js",
+  // Only loaded on the first scan, but precached so scanning works offline too.
+  "vendor/zxing.min.js",
   "manifest.webmanifest",
   "icons/icon-192.png",
   "icons/icon-512.png",

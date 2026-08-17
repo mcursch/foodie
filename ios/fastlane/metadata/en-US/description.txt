@@ -2,18 +2,27 @@ Foodie is the simplest way to track what you eat — private, fast, and free.
 
 Log your meals in seconds, set a daily calorie goal, and watch a clean progress ring fill as your day goes on. Add protein, carbs, and fat when you want the detail, or just track calories when you don't.
 
-Everything stays on your iPhone. No account. No sign-up. No ads. No tracking. Foodie doesn't collect any data — your food log never leaves your device.
+Don't want to type numbers? Search a built-in table of everyday foods, or scan a product's barcode and Foodie fills in the calories and macros for you.
+
+Your food log stays on your iPhone. No account. No sign-up. No ads. No tracking.
 
 FEATURES
 • Quick add — log a food and its calories in seconds
+• Search hundreds of common foods, with sensible portion sizes built in
+• Barcode scanner — point the camera at a package and log it
 • Daily calorie goal with an at-a-glance progress ring
 • Optional protein, carbs & fat (macro) tracking
 • One-tap re-add of foods you eat often
 • Browse and edit previous days
 • Automatic light & dark mode
 • Export a backup of your data anytime
-• Works fully offline
+• Logging works fully offline — common foods are bundled in the app
+
+PRIVACY
+Foodie has no accounts and collects nothing about you. Your log, your goal, and your history never leave your device. Searching or scanning sends only that search word or barcode number to Open Food Facts, the free open food database — never your food log. If you never search or scan, Foodie makes no network requests at all.
 
 Foodie is built for people who want a calorie tracker that respects their time and their privacy — no bloat, no paywalls, no data harvesting. Just open it, log your food, and get on with your day.
+
+Product data from Open Food Facts, © its contributors, licensed under the ODbL. Common-food nutrition values from USDA FoodData Central.
 
 Download Foodie and start tracking today.
