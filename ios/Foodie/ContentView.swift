@@ -4,6 +4,7 @@ struct ContentView: View {
     @EnvironmentObject var store: FoodStore
     @State private var selectedDate = Date()
     @State private var showingSettings = false
+    @State private var showingTrends = false
 
     private var isToday: Bool {
         Calendar.current.isDateInToday(selectedDate)
@@ -22,11 +23,17 @@ struct ContentView: View {
                 }
                 .padding(16)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(store.theme.background)
             .navigationTitle("Foodie")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) { dateSelector }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showingTrends = true } label: {
+                        Image(systemName: "chart.xyaxis.line")
+                    }
+                    .accessibilityLabel("Trends")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showingSettings = true } label: {
                         Image(systemName: "gearshape")
@@ -36,6 +43,9 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showingSettings) {
                 SettingsView().environmentObject(store)
+            }
+            .sheet(isPresented: $showingTrends) {
+                TrendsView().environmentObject(store)
             }
         }
     }
@@ -90,7 +100,7 @@ struct ContentView: View {
             }
         }
         .padding(20)
-        .background(Color(.secondarySystemGroupedBackground))
+        .background(store.theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
@@ -124,7 +134,7 @@ struct ContentView: View {
             }
         }
         .padding(16)
-        .background(Color(.secondarySystemGroupedBackground))
+        .background(store.theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }

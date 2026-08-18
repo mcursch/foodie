@@ -12,6 +12,7 @@ struct BarcodeScannerView: View {
     /// Called with the raw barcode payload once.
     let onScan: (String) -> Void
 
+    @EnvironmentObject var store: FoodStore
     @Environment(\.dismiss) private var dismiss
     @State private var permission: PermissionState = .checking
     @State private var manualCode = ""
@@ -92,6 +93,7 @@ struct BarcodeScannerView: View {
 
             Button("Look up") { onScan(manualCode) }
                 .buttonStyle(.borderedProminent)
+                .foregroundStyle(store.theme.onAccent)
                 .disabled(manualCode.count < 6)
 
             if permission == .denied {

@@ -19,6 +19,16 @@
 
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="stylesheet" href="styles.css" />
+  <script>
+    (function () {
+      // Applied before first paint to avoid a flash of the wrong theme.
+      try {
+        var raw = localStorage.getItem("foodie.v1");
+        var theme = raw && JSON.parse(raw).theme;
+        if (theme && theme !== "auto") document.documentElement.setAttribute("data-theme", theme);
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <div class="app">
@@ -120,7 +130,55 @@
       <button id="portionAdd" class="btn-primary" type="button">Add to log</button>
     </div>
 
+    <!-- Trends sheet -->
+    <div class="sheet sheet-tall" id="trendsSheet" role="dialog" aria-modal="true" aria-label="Trends" hidden>
+      <div class="sheet-handle"></div>
+      <div class="seg" id="trendsTabs" role="tablist" aria-label="Trend type">
+        <button type="button" class="seg-btn is-active" data-tab="weight" role="tab" aria-selected="true">Weight</button>
+        <button type="button" class="seg-btn" data-tab="calories" role="tab" aria-selected="false">Calories</button>
+      </div>
+
+      <div id="trendsPanelWeight" class="trend-panel">
+        <div class="weight-log-row">
+          <input id="weightInput" class="in" type="number" inputmode="decimal" step="0.1" min="0" max="1500" placeholder="Weight" />
+          <div class="seg seg-sm" id="weightUnitToggle">
+            <button type="button" class="seg-btn" data-unit="lb">lb</button>
+            <button type="button" class="seg-btn" data-unit="kg">kg</button>
+          </div>
+          <button id="weightLogBtn" class="btn-primary weight-log-btn" type="button">Log</button>
+        </div>
+        <div class="seg seg-range" id="weightRangeToggle">
+          <button type="button" class="range-btn" data-range="30">30d</button>
+          <button type="button" class="range-btn is-active" data-range="90">90d</button>
+          <button type="button" class="range-btn" data-range="365">1y</button>
+          <button type="button" class="range-btn" data-range="0">All</button>
+        </div>
+        <div class="chart-wrap" id="weightChartWrap">
+          <svg id="weightChart" class="chart" viewBox="0 0 300 160" preserveAspectRatio="none" aria-hidden="true"></svg>
+        </div>
+        <p class="empty" id="weightEmpty">No weight logged yet. Enter today's weight above to start your trend.</p>
+        <div class="trend-stats" id="weightStats"></div>
+      </div>
+
+      <div id="trendsPanelCalories" class="trend-panel" hidden>
+        <div class="seg seg-range" id="calorieRangeToggle">
+          <button type="button" class="range-btn" data-range="7">7d</button>
+          <button type="button" class="range-btn is-active" data-range="14">14d</button>
+          <button type="button" class="range-btn" data-range="30">30d</button>
+          <button type="button" class="range-btn" data-range="90">90d</button>
+        </div>
+        <div class="chart-wrap" id="calorieChartWrap">
+          <svg id="calorieChart" class="chart" viewBox="0 0 300 160" preserveAspectRatio="none" aria-hidden="true"></svg>
+        </div>
+        <p class="empty" id="calorieEmpty">Log a few days of food to see your consistency here.</p>
+        <p class="trend-adherence" id="calorieAdherence"></p>
+      </div>
+
+      <button id="trendsClose" class="btn-ghost" type="button">Close</button>
+    </div>
+
     <!-- Settings sheet -->
+    <button id="trendsBtn" class="fab fab-left" type="button" aria-label="Trends">📈</button>
     <button id="settingsBtn" class="fab" type="button" aria-label="Settings">⚙️</button>
     <div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
     <div class="sheet" id="settingsSheet" role="dialog" aria-modal="true" aria-label="Settings" hidden>
@@ -130,6 +188,26 @@
         <span>Calorie goal (kcal)</span>
         <input id="goalInput" class="in" type="number" inputmode="numeric" min="500" max="10000" step="10" />
       </label>
+      <div class="field">
+        <span>Theme</span>
+        <div class="theme-swatches" id="themeSwatches" role="radiogroup" aria-label="Color theme">
+          <button type="button" class="theme-swatch" data-swatch="auto" role="radio" aria-checked="false">
+            <span class="theme-swatch-dot"></span><span class="theme-swatch-label">Auto</span>
+          </button>
+          <button type="button" class="theme-swatch" data-swatch="black" role="radio" aria-checked="false">
+            <span class="theme-swatch-dot"></span><span class="theme-swatch-label">Black</span>
+          </button>
+          <button type="button" class="theme-swatch" data-swatch="white" role="radio" aria-checked="false">
+            <span class="theme-swatch-dot"></span><span class="theme-swatch-label">White</span>
+          </button>
+          <button type="button" class="theme-swatch" data-swatch="blue" role="radio" aria-checked="false">
+            <span class="theme-swatch-dot"></span><span class="theme-swatch-label">Blue</span>
+          </button>
+          <button type="button" class="theme-swatch" data-swatch="pink" role="radio" aria-checked="false">
+            <span class="theme-swatch-dot"></span><span class="theme-swatch-label">Pink</span>
+          </button>
+        </div>
+      </div>
       <div class="sheet-actions">
         <button id="exportBtn" class="btn-ghost" type="button">Export data</button>
         <button id="importBtn" class="btn-ghost" type="button">Import data</button>
@@ -149,5 +227,6 @@
   <script src="foodsearch.js"></script>
   <script src="scanner.js"></script>
   <script src="app.js"></script>
+  <script src="trends.js"></script>
 </body>
 </html>

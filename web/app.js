@@ -10,8 +10,11 @@
   var state = load();
   var viewDate = todayKey();
 
+  var THEMES = ["auto", "black", "white", "blue", "pink"];
+  var THEME_COLORS = { auto: null, black: "#000000", white: "#fafafa", blue: "#eef4fb", pink: "#fdf1f6" };
+
   function defaultState() {
-    return { goal: 2000, days: {}, recents: [] };
+    return { goal: 2000, days: {}, recents: [], weights: {}, weightUnit: "lb", theme: "auto" };
   }
 
   function load() {
@@ -23,9 +26,30 @@
       parsed.goal = clampInt(parsed.goal, 500, 10000, 2000);
       parsed.days = parsed.days && typeof parsed.days === "object" ? parsed.days : {};
       parsed.recents = Array.isArray(parsed.recents) ? parsed.recents : [];
+      // weights: day key ("YYYY-MM-DD") -> body weight in kg (canonical, unit-independent)
+      parsed.weights = parsed.weights && typeof parsed.weights === "object" ? parsed.weights : {};
+      parsed.weightUnit = parsed.weightUnit === "kg" ? "kg" : "lb";
+      parsed.theme = THEMES.indexOf(parsed.theme) !== -1 ? parsed.theme : "auto";
       return parsed;
     } catch (e) {
       return defaultState();
+    }
+  }
+
+  // ---- Theme ------------------------------------------------------------
+  function applyTheme(theme) {
+    if (theme === "auto") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", theme);
+
+    var metaLight = document.querySelector('meta[name="theme-color"][media*="light"]');
+    var metaDark = document.querySelector('meta[name="theme-color"][media*="dark"]');
+    var forced = THEME_COLORS[theme];
+    if (forced) {
+      if (metaLight) metaLight.setAttribute("content", forced);
+      if (metaDark) metaDark.setAttribute("content", forced);
+    } else {
+      if (metaLight) metaLight.setAttribute("content", "#16a34a");
+      if (metaDark) metaDark.setAttribute("content", "#0b1220");
     }
   }
 
@@ -91,8 +115,9 @@
     addForm: $("addForm"), foodName: $("foodName"), foodKcal: $("foodKcal"),
     foodP: $("foodP"), foodC: $("foodC"), foodF: $("foodF"),
     settingsBtn: $("settingsBtn"), settingsSheet: $("settingsSheet"),
+    trendsBtn: $("trendsBtn"),
     sheetBackdrop: $("sheetBackdrop"), goalInput: $("goalInput"),
-    saveSettings: $("saveSettings"),
+    saveSettings: $("saveSettings"), themeSwatches: $("themeSwatches"),
     exportBtn: $("exportBtn"), importBtn: $("importBtn"), importFile: $("importFile"),
     searchBtn: $("searchBtn"), scanBtn: $("scanBtn"),
     searchSheet: $("searchSheet"), searchInput: $("searchInput"),
@@ -218,8 +243,26 @@
   // ---- Sheets ---------------------------------------------------------------
   function openSheet() {
     els.goalInput.value = state.goal;
+    updateThemeSwatches();
     els.sheetBackdrop.hidden = false;
     els.settingsSheet.hidden = false;
+  }
+
+  function updateThemeSwatches() {
+    var buttons = els.themeSwatches.querySelectorAll(".theme-swatch");
+    for (var i = 0; i < buttons.length; i++) {
+      var active = buttons[i].getAttribute("data-swatch") === state.theme;
+      buttons[i].classList.toggle("is-active", active);
+      buttons[i].setAttribute("aria-checked", active ? "true" : "false");
+    }
+  }
+
+  function setTheme(theme) {
+    if (THEMES.indexOf(theme) === -1) return;
+    state.theme = theme;
+    applyTheme(theme);
+    save();
+    updateThemeSwatches();
   }
   function closeSheet() {
     els.sheetBackdrop.hidden = true;
@@ -230,6 +273,7 @@
     closePortion();
     closeSearch();
     closeSheet();
+    if (window.FoodieTrends) window.FoodieTrends.close();
   }
 
   function exportData() {
@@ -254,10 +298,15 @@
           goal: clampInt(data.goal, 500, 10000, 2000),
           days: data.days,
           recents: Array.isArray(data.recents) ? data.recents : [],
+          weights: data.weights && typeof data.weights === "object" ? data.weights : {},
+          weightUnit: data.weightUnit === "kg" ? "kg" : "lb",
+          theme: THEMES.indexOf(data.theme) !== -1 ? data.theme : "auto",
         };
         save();
+        applyTheme(state.theme);
         render();
         closeSheet();
+        if (window.FoodieTrends) window.FoodieTrends.refresh();
         toast("Data imported");
       } catch (e) {
         toast("Import failed — invalid file");
@@ -477,11 +526,22 @@
     if (!els.portionSheet.hidden) closePortion();
     else if (!els.searchSheet.hidden) closeSearch();
     else if (!els.settingsSheet.hidden) closeSheet();
+    else if (window.FoodieTrends && window.FoodieTrends.isOpen()) window.FoodieTrends.close();
     else window.FoodieScanner.close();
   });
 
+  if (els.trendsBtn) {
+    els.trendsBtn.addEventListener("click", function () {
+      if (window.FoodieTrends) window.FoodieTrends.open();
+    });
+  }
+
   els.settingsBtn.addEventListener("click", openSheet);
   els.sheetBackdrop.addEventListener("click", closeAllSheets);
+  els.themeSwatches.addEventListener("click", function (e) {
+    var btn = e.target.closest(".theme-swatch");
+    if (btn) setTheme(btn.getAttribute("data-swatch"));
+  });
   els.saveSettings.addEventListener("click", function () {
     state.goal = clampInt(els.goalInput.value, 500, 10000, 2000);
     save();
@@ -502,6 +562,23 @@
     });
   }
 
+  // ---- Shared-state API for trends.js ----------------------------------------
+  // `state` gets reassigned wholesale on import, so hand out accessors rather
+  // than the object itself.
+  window.FoodieData = {
+    getState: function () { return state; },
+    save: save,
+    todayKey: todayKey,
+    totals: totals,
+    openBackdrop: function () { els.sheetBackdrop.hidden = false; },
+    closeBackdropIfNoSheets: function () {
+      if (els.settingsSheet.hidden && els.searchSheet.hidden && els.portionSheet.hidden) {
+        els.sheetBackdrop.hidden = true;
+      }
+    },
+  };
+
   // ---- Go -------------------------------------------------------------------
+  applyTheme(state.theme);
   render();
 })();

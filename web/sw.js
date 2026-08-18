@@ -1,12 +1,13 @@
 /* Foodie service worker — caches the app shell so it works fully offline. */
 // Bump this whenever the shell changes — same-origin GETs are served cache-first,
 // so a stale version pins the old app.js/styles.css until the name changes.
-var CACHE = "foodie-v2";
+var CACHE = "foodie-v3";
 var ASSETS = [
   "./",
   "index.html",
   "styles.css",
   "app.js",
+  "trends.js",
   "foods.js",
   "foodsearch.js",
   "scanner.js",

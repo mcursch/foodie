@@ -65,6 +65,7 @@ struct AddFoodView: View {
                     .font(.body.weight(.bold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
+                    .foregroundStyle(store.theme.onAccent)
             }
             .buttonStyle(.borderedProminent)
             .disabled(!canAdd)
@@ -93,7 +94,7 @@ struct AddFoodView: View {
             }
         }
         .padding(16)
-        .background(Color(.secondarySystemGroupedBackground))
+        .background(store.theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .sheet(isPresented: $showSearch) {
             FoodSearchView(date: date, startScanning: searchStartsScanning)

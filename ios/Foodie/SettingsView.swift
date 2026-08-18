@@ -25,6 +25,11 @@ struct SettingsView: View {
                     }
                 }
 
+                Section("Theme") {
+                    ThemePicker(selection: $store.theme)
+                        .padding(.vertical, 4)
+                }
+
                 Section("Your data") {
                     if let url = exportURL {
                         ShareLink(item: url) {

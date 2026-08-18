@@ -2,6 +2,7 @@ import SwiftUI
 
 /// The daily calorie progress ring with eaten / goal / remaining in the center.
 struct RingView: View {
+    @EnvironmentObject var store: FoodStore
     let eaten: Int
     let goal: Int
 
@@ -20,7 +21,7 @@ struct RingView: View {
             Circle()
                 .trim(from: 0, to: progress)
                 .stroke(
-                    over ? Color.red : Color.brandGreen,
+                    over ? Color.red : store.theme.accent,
                     style: StrokeStyle(lineWidth: 14, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
@@ -35,7 +36,7 @@ struct RingView: View {
                     .foregroundStyle(.secondary)
                 Text(over ? "\(abs(remaining)) over" : "\(remaining) left")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(over ? .red : Color.brandGreen)
+                    .foregroundStyle(over ? .red : store.theme.accent)
                     .padding(.top, 2)
             }
         }

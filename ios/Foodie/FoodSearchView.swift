@@ -167,6 +167,7 @@ struct FoodSearchView: View {
 
 /// Choose how much of a found food to log, with a live macro preview.
 struct PortionView: View {
+    @EnvironmentObject var store: FoodStore
     let hit: FoodHit
     let onAdd: (FoodEntry) -> Void
 
@@ -250,6 +251,7 @@ struct PortionView: View {
                     Text("Add to log")
                         .font(.body.weight(.semibold))
                         .frame(maxWidth: .infinity)
+                        .foregroundStyle(store.theme.onAccent)
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(preview.kcal <= 0)

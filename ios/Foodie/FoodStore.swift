@@ -7,6 +7,9 @@ final class FoodStore: ObservableObject {
     @Published var goal: Int
     @Published private(set) var days: [String: [FoodEntry]]
     @Published private(set) var recents: [FoodEntry]
+    @Published private(set) var weights: [String: Double]   // day key -> kg
+    @Published var weightUnit: WeightUnit
+    @Published var theme: AppTheme
 
     private let fileURL: URL
     private var saveCancellable: AnyCancellable?
@@ -19,6 +22,9 @@ final class FoodStore: ObservableObject {
         self.goal = snapshot.goal
         self.days = snapshot.days
         self.recents = snapshot.recents
+        self.weights = snapshot.weights
+        self.weightUnit = snapshot.weightUnit
+        self.theme = snapshot.theme
 
         // Debounced auto-save whenever anything changes.
         saveCancellable = objectWillChange
@@ -39,7 +45,8 @@ final class FoodStore: ObservableObject {
     }
 
     func save() {
-        let snapshot = Snapshot(goal: goal, days: days, recents: recents)
+        let snapshot = Snapshot(goal: goal, days: days, recents: recents,
+                                 weights: weights, weightUnit: weightUnit, theme: theme)
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
         try? data.write(to: fileURL, options: [.atomic])
     }
@@ -97,6 +104,42 @@ final class FoodStore: ObservableObject {
         for i in offsets { delete(entries[i], from: date) }
     }
 
+    // MARK: - Weight
+
+    func weightKg(for date: Date) -> Double? { weights[key(for: date)] }
+
+    /// Logs (or overwrites) the day's weight. `value` is in `unit`, converted
+    /// and stored canonically in kg.
+    func logWeight(_ value: Double, unit: WeightUnit, for date: Date) {
+        let kg = unit.kg(fromValue: value)
+        guard kg > 0, kg < 700 else { return }
+        weights[key(for: date)] = kg
+    }
+
+    func deleteWeight(for date: Date) {
+        weights[key(for: date)] = nil
+    }
+
+    /// All logged weights, oldest first, as concrete dates for charting.
+    func weightHistory() -> [WeightEntry] {
+        weights.compactMap { key, kg in
+            Self.dayFormatter.date(from: key).map { WeightEntry(date: $0, kg: kg) }
+        }.sorted { $0.date < $1.date }
+    }
+
+    // MARK: - Calorie history
+
+    /// Daily kcal totals for the trailing `count` days (including `end`), oldest
+    /// first. Days with no entries come back as 0, so the chart shows real gaps.
+    func dailyKcalTotals(lastDays count: Int, endingOn end: Date = Date()) -> [(date: Date, kcal: Int)] {
+        let cal = Calendar.current
+        let startOfEnd = cal.startOfDay(for: end)
+        return (0..<count).reversed().compactMap { offset -> (Date, Int)? in
+            guard let d = cal.date(byAdding: .day, value: -offset, to: startOfEnd) else { return nil }
+            return (d, totals(for: d).kcal)
+        }
+    }
+
     private func rememberRecent(_ entry: FoodEntry) {
         let lower = entry.name.lowercased()
         recents.removeAll { $0.name.lowercased() == lower }
@@ -110,7 +153,8 @@ final class FoodStore: ObservableObject {
     // MARK: - Import / export
 
     func exportData() -> Data {
-        let snapshot = Snapshot(goal: goal, days: days, recents: recents)
+        let snapshot = Snapshot(goal: goal, days: days, recents: recents,
+                                 weights: weights, weightUnit: weightUnit, theme: theme)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         return (try? encoder.encode(snapshot)) ?? Data()
@@ -122,6 +166,9 @@ final class FoodStore: ObservableObject {
         goal = min(max(snap.goal, 500), 10000)
         days = snap.days
         recents = snap.recents
+        weights = snap.weights
+        weightUnit = snap.weightUnit
+        theme = snap.theme
         save()
         return true
     }
