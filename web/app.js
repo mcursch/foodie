@@ -94,6 +94,14 @@
     sheetBackdrop: $("sheetBackdrop"), goalInput: $("goalInput"),
     saveSettings: $("saveSettings"),
     exportBtn: $("exportBtn"), importBtn: $("importBtn"), importFile: $("importFile"),
+    searchBtn: $("searchBtn"), scanBtn: $("scanBtn"),
+    searchSheet: $("searchSheet"), searchInput: $("searchInput"),
+    searchScanBtn: $("searchScanBtn"), searchResults: $("searchResults"),
+    searchClose: $("searchClose"),
+    portionSheet: $("portionSheet"), portionName: $("portionName"), portionSub: $("portionSub"),
+    portionSelect: $("portionSelect"), portionAmount: $("portionAmount"),
+    portionAmountLabel: $("portionAmountLabel"), portionPreview: $("portionPreview"),
+    portionAdd: $("portionAdd"), portionBack: $("portionBack"),
   };
 
   // ---- Render ---------------------------------------------------------------
@@ -207,7 +215,7 @@
     toastTimer = setTimeout(function () { el.classList.remove("show"); }, 1600);
   }
 
-  // ---- Settings sheet -------------------------------------------------------
+  // ---- Sheets ---------------------------------------------------------------
   function openSheet() {
     els.goalInput.value = state.goal;
     els.sheetBackdrop.hidden = false;
@@ -216,6 +224,12 @@
   function closeSheet() {
     els.sheetBackdrop.hidden = true;
     els.settingsSheet.hidden = true;
+  }
+  /* Backdrop and Escape dismiss whichever sheet is on top. */
+  function closeAllSheets() {
+    closePortion();
+    closeSearch();
+    closeSheet();
   }
 
   function exportData() {
@@ -252,6 +266,169 @@
     reader.readAsText(file);
   }
 
+  // ---- Search sheet ---------------------------------------------------------
+  var searchTimer = null;
+  var searchSeq = 0;          // guards against out-of-order network replies
+  var pendingHit = null;      // the hit shown in the portion sheet
+
+  function openSearch() {
+    els.sheetBackdrop.hidden = false;
+    els.searchSheet.hidden = false;
+    els.searchInput.value = "";
+    renderSearch([], [], "Search for a food, or scan a barcode.");
+    els.searchInput.focus();
+  }
+
+  function closeSearch() {
+    clearTimeout(searchTimer);
+    searchSeq++;              // invalidate any in-flight request
+    els.searchSheet.hidden = true;
+    if (els.portionSheet.hidden) els.sheetBackdrop.hidden = true;
+  }
+
+  /* Bundled results update on every keystroke; the network call is debounced. */
+  function onSearchInput() {
+    var q = els.searchInput.value.trim();
+    clearTimeout(searchTimer);
+    var seq = ++searchSeq;
+
+    var common = window.FoodieSearch.searchCommon(q);
+    if (q.length < 2) {
+      renderSearch([], [], "Type at least two letters.");
+      return;
+    }
+    renderSearch(common, [], common.length ? "" : "Searching…");
+
+    searchTimer = setTimeout(function () {
+      window.FoodieSearch.searchProducts(q).then(function (branded) {
+        if (seq !== searchSeq) return;
+        renderSearch(common, branded,
+          common.length || branded.length ? "" : "No matches. Try a shorter word or scan the barcode.");
+      });
+    }, 350);
+  }
+
+  function renderSearch(common, branded, note) {
+    els.searchResults.innerHTML = "";
+
+    function group(title, hits) {
+      if (!hits.length) return;
+      var h = document.createElement("div");
+      h.className = "search-group";
+      h.textContent = title;
+      els.searchResults.appendChild(h);
+
+      hits.forEach(function (hit) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "search-item";
+        var sub = (hit.brand ? esc(hit.brand) + "  ·  " : "") +
+          Math.round(hit.kcal) + " kcal / 100 g";
+        b.innerHTML = '<div class="search-item-name">' + esc(hit.name) + "</div>" +
+          '<div class="search-item-sub">' + sub + "</div>";
+        b.addEventListener("click", function () { openPortion(hit); });
+        els.searchResults.appendChild(b);
+      });
+    }
+
+    group("Common foods", common);
+    group("Branded products", branded);
+
+    if (note) {
+      var p = document.createElement("p");
+      p.className = "search-note";
+      p.textContent = note;
+      els.searchResults.appendChild(p);
+    }
+  }
+
+  // ---- Portion sheet --------------------------------------------------------
+  function openPortion(hit) {
+    pendingHit = hit;
+    els.portionName.textContent = hit.name;
+    els.portionSub.textContent = (hit.brand ? hit.brand + "  ·  " : "") +
+      Math.round(hit.kcal) + " kcal per 100 g";
+
+    var options = window.FoodieSearch.portionOptions(hit);
+    els.portionSelect.innerHTML = "";
+    options.forEach(function (o, i) {
+      var opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = window.FoodieSearch.portionLabel(o);
+      els.portionSelect.appendChild(opt);
+    });
+    var custom = document.createElement("option");
+    custom.value = "custom";
+    custom.textContent = "Custom weight";
+    els.portionSelect.appendChild(custom);
+
+    els.portionSelect.value = "0";
+    els.portionAmount.value = "1";
+    updatePortion();
+
+    els.sheetBackdrop.hidden = false;
+    els.portionSheet.hidden = false;
+  }
+
+  function closePortion() {
+    pendingHit = null;
+    els.portionSheet.hidden = true;
+    if (els.searchSheet.hidden) els.sheetBackdrop.hidden = true;
+  }
+
+  /* Grams for the current selection: either a multiple of a named serving, or a
+     directly typed weight. Clamped so a stray keypress can't log 10^9 kcal. */
+  function portionGrams() {
+    if (!pendingHit) return 0;
+    var amount = parseFloat(String(els.portionAmount.value).replace(",", "."));
+    if (!isFinite(amount) || amount < 0) return 0;
+    if (els.portionSelect.value === "custom") return Math.min(amount, 5000);
+    var options = window.FoodieSearch.portionOptions(pendingHit);
+    var serving = options[parseInt(els.portionSelect.value, 10)] || options[0];
+    return Math.min(serving.grams * amount, 5000);
+  }
+
+  function updatePortion() {
+    if (!pendingHit) return;
+    var isCustom = els.portionSelect.value === "custom";
+    els.portionAmountLabel.textContent = isCustom ? "Grams" : "How many";
+
+    var grams = portionGrams();
+    var e = window.FoodieSearch.entryFor(pendingHit, grams);
+    els.portionPreview.innerHTML =
+      e.kcal + " kcal  ·  " + Math.round(grams) + " g" +
+      '<span class="portion-macros">P ' + e.p + "  ·  C " + e.c + "  ·  F " + e.f + " g</span>";
+    els.portionAdd.disabled = e.kcal <= 0;
+  }
+
+  function addFromPortion() {
+    if (!pendingHit) return;
+    var e = window.FoodieSearch.entryFor(pendingHit, portionGrams());
+    if (e.kcal <= 0) return;
+    addEntry(e.name, e.kcal, e.p, e.c, e.f);
+    closePortion();
+    closeSearch();
+    toast("Added " + e.name);
+  }
+
+  // ---- Barcode scanning -----------------------------------------------------
+  function startScan() {
+    window.FoodieScanner.open(function (code) {
+      toast("Looking up…");
+      window.FoodieSearch.lookupBarcode(code).then(function (hit) {
+        if (els.searchSheet.hidden) {
+          els.sheetBackdrop.hidden = false;
+          els.searchSheet.hidden = false;
+          els.searchInput.value = "";
+          renderSearch([], [], "Scanned " + code);
+        }
+        openPortion(hit);
+      }, function (err) {
+        toast(err.message || "Couldn't look up that barcode.");
+      });
+    });
+  }
+
   // ---- Events ---------------------------------------------------------------
   els.addForm.addEventListener("submit", function (e) {
     e.preventDefault();
@@ -284,8 +461,27 @@
     render();
   });
 
+  els.searchBtn.addEventListener("click", openSearch);
+  els.scanBtn.addEventListener("click", startScan);
+  els.searchScanBtn.addEventListener("click", startScan);
+  els.searchClose.addEventListener("click", closeSearch);
+  els.searchInput.addEventListener("input", onSearchInput);
+
+  els.portionSelect.addEventListener("change", updatePortion);
+  els.portionAmount.addEventListener("input", updatePortion);
+  els.portionAdd.addEventListener("click", addFromPortion);
+  els.portionBack.addEventListener("click", closePortion);
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    if (!els.portionSheet.hidden) closePortion();
+    else if (!els.searchSheet.hidden) closeSearch();
+    else if (!els.settingsSheet.hidden) closeSheet();
+    else window.FoodieScanner.close();
+  });
+
   els.settingsBtn.addEventListener("click", openSheet);
-  els.sheetBackdrop.addEventListener("click", closeSheet);
+  els.sheetBackdrop.addEventListener("click", closeAllSheets);
   els.saveSettings.addEventListener("click", function () {
     state.goal = clampInt(els.goalInput.value, 500, 10000, 2000);
     save();

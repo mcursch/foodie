@@ -54,6 +54,14 @@
       <!-- Quick add -->
       <section class="card">
         <h2 class="card-title">Add food</h2>
+        <div class="add-actions">
+          <button id="searchBtn" class="btn-secondary" type="button">
+            <span aria-hidden="true">🔍</span> Search foods
+          </button>
+          <button id="scanBtn" class="btn-secondary" type="button">
+            <span aria-hidden="true">📷</span> Scan
+          </button>
+        </div>
         <form id="addForm" class="add-form" autocomplete="off">
           <input id="foodName" class="in in-name" type="text" inputmode="text"
                  placeholder="Food (e.g. Banana)" required maxlength="60" />
@@ -80,6 +88,38 @@
       </section>
     </main>
 
+    <!-- Search sheet -->
+    <div class="sheet sheet-tall" id="searchSheet" role="dialog" aria-modal="true" aria-label="Search foods" hidden>
+      <div class="sheet-handle"></div>
+      <div class="search-head">
+        <input id="searchInput" class="in" type="search" placeholder="Search foods"
+               autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+        <button id="searchScanBtn" class="btn-ghost search-scan" type="button" aria-label="Scan barcode">📷</button>
+      </div>
+      <div id="searchResults" class="search-results" aria-live="polite"></div>
+      <button id="searchClose" class="btn-ghost" type="button">Close</button>
+    </div>
+
+    <!-- Portion sheet -->
+    <div class="sheet" id="portionSheet" role="dialog" aria-modal="true" aria-label="Choose portion" hidden>
+      <div class="sheet-handle"></div>
+      <h2 id="portionName">Food</h2>
+      <p class="portion-sub" id="portionSub"></p>
+      <label class="field">
+        <span>Portion</span>
+        <select id="portionSelect" class="in"></select>
+      </label>
+      <label class="field">
+        <span id="portionAmountLabel">How many</span>
+        <input id="portionAmount" class="in" type="number" inputmode="decimal" min="0" max="5000" step="any" value="1" />
+      </label>
+      <p class="portion-preview" id="portionPreview"></p>
+      <div class="sheet-actions">
+        <button id="portionBack" class="btn-ghost" type="button">Back</button>
+      </div>
+      <button id="portionAdd" class="btn-primary" type="button">Add to log</button>
+    </div>
+
     <!-- Settings sheet -->
     <button id="settingsBtn" class="fab" type="button" aria-label="Settings">⚙️</button>
     <div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
@@ -96,10 +136,18 @@
       </div>
       <input id="importFile" type="file" accept="application/json" hidden />
       <button id="saveSettings" class="btn-primary" type="button">Done</button>
-      <p class="version">Foodie · free & offline · your data stays on this device</p>
+      <p class="version">Foodie · free · your food log stays on this device</p>
+      <p class="version">
+        Product search &amp; barcodes by
+        <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener">Open Food Facts</a>,
+        © its contributors under the ODbL. Common-food values from USDA FoodData Central.
+      </p>
     </div>
   </div>
 
+  <script src="foods.js"></script>
+  <script src="foodsearch.js"></script>
+  <script src="scanner.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

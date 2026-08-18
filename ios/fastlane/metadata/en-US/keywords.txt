@@ -1,1 +1,1 @@
-calorie,counter,macro,tracker,food,diary,nutrition,diet,fasting,protein,carbs,health,weight,log,meal
+calorie,counter,macro,tracker,barcode,scanner,food,diary,nutrition,diet,protein,carbs,log,meal

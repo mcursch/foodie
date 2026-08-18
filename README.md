@@ -20,17 +20,24 @@ Store.
 
 ### What it does (all on-device, all free)
 - Log foods with calories + optional protein / carbs / fat
+- **Search foods** — a bundled table of ~145 common whole foods (instant, offline)
+  plus branded products from Open Food Facts
+- **Barcode scanner** — VisionKit `DataScannerViewController`; scan a package and
+  the calories/macros fill themselves in
+- Portion picker with sensible servings ("1 medium banana", "1 tbsp") or a custom
+  gram weight, with a live macro preview
 - Animated daily progress ring vs. an editable calorie goal (turns red when over)
 - One-tap re-add of recent foods
 - Browse previous days (chevrons; tap the date to jump back to Today)
 - Swipe/tap to delete entries
-- Data stored **locally** as JSON in the app's Documents dir — nothing leaves the phone
+- Data stored **locally** as JSON in the app's Documents dir — your log never leaves the phone
 - Export / import a JSON backup (via the share sheet & Files)
 - Automatic light & dark mode; iPhone (iPad support easy to re-enable later)
 
 ### Tech
 - **SwiftUI**, `ObservableObject` store, `Codable` persistence to a JSON file
-- No third-party packages — pure Apple frameworks
+- No third-party packages — pure Apple frameworks (VisionKit for scanning)
+- Requires the **camera** permission, prompted only on first tap of Scan
 - Deployment target **iOS 17.0**
 - Requires **Xcode 16 or newer** (the project uses file-system synchronized groups)
 
@@ -91,7 +98,11 @@ ios/
     ├── Models.swift            # FoodEntry, Totals, Snapshot (Codable)
     ├── FoodStore.swift         # ObservableObject + JSON persistence
     ├── ContentView.swift       # Main screen: summary, log, date nav
-    ├── AddFoodView.swift       # Add-food card + recent chips
+    ├── AddFoodView.swift       # Add-food card + recent chips + search/scan buttons
+    ├── FoodSearch.swift        # Search models + Open Food Facts client
+    ├── FoodSearchView.swift    # Search sheet + portion picker
+    ├── BarcodeScannerView.swift# VisionKit scanner (+ typed-barcode fallback)
+    ├── CommonFoods.swift       # GENERATED — see scripts/gen_foods.py
     ├── RingView.swift          # Progress ring + macro columns
     ├── SettingsView.swift      # Goal, export/import, about
     ├── Assets.xcassets/        # AppIcon (1024) + AccentColor
@@ -105,6 +116,49 @@ python3 scripts/gen_icons.py   # writes web/icons/* AND the iOS 1024 app icon
 
 ---
 
+## Food data
+
+Two sources, both free, neither needing an API key or having a monthly quota.
+
+| Source | Used for | Where |
+| --- | --- | --- |
+| **Bundled table** (`data/common_foods.json`) | ~145 common whole foods, per 100 g, with typical servings | Compiled into both apps; instant and offline |
+| **[Open Food Facts](https://world.openfoodfacts.org)** | Branded products and all barcode lookups | Live API, no key |
+
+### Editing the bundled table
+`data/common_foods.json` is the single source of truth. After editing it:
+
+```bash
+python3 scripts/gen_foods.py   # rewrites web/foods.js AND ios/Foodie/CommonFoods.swift
+```
+
+Both generated files are committed, so neither app needs a build step. The script
+validates ids and serving weights and fails loudly on a typo.
+
+### Open Food Facts endpoint notes (why the code looks like it does)
+OFF exposes two text-search endpoints and they fail in opposite ways, which is
+why each platform picks a different one:
+
+- `search.openfoodfacts.org/search` — fast and reliable, but sends **no
+  `Access-Control-Allow-Origin` header**, so a browser can't call it. The iOS app
+  uses it (URLSession has no CORS).
+- `world.openfoodfacts.org/cgi/search.pl` — proper CORS, but sheds load with a
+  **503** under pressure. The web app uses it, with one automatic retry.
+
+Barcode lookups use `world.openfoodfacts.org/api/v2/product/<code>.json`, which is
+both CORS-enabled and reliable, on both platforms.
+
+OFF asks clients to send an identifying `User-Agent`; the iOS app does. Browsers
+forbid setting that header, so the web app can't and doesn't need to.
+
+### Attribution (required)
+Open Food Facts product data is © its contributors and licensed under the
+**[ODbL](https://opendatacommons.org/licenses/odbl/)**. The attribution is shown
+in-app (iOS Settings → Food data; web Settings sheet) and in `web/privacy.html`.
+Common-food values come from **USDA FoodData Central** (public domain).
+
+---
+
 ## Web PWA (`web/`) — the free fallback
 
 Add-to-home-screen web app, no App Store needed. Test locally:
@@ -115,6 +169,33 @@ To install on a phone it must be served over **HTTPS** (free static hosts:
 GitHub Pages, Cloudflare Pages, Netlify, Vercel). Then in Safari:
 **Share → Add to Home Screen**.
 
+The PWA has the same search and scanner as the native app. Camera access needs a
+**secure context**, so scanning works on `https://` and `http://localhost` but not
+over plain `http://` on a LAN address — the scanner falls back to typing the
+barcode number there.
+
+```
+web/
+├── index.html          # markup incl. the search + portion sheets
+├── app.js              # state, rendering, sheet wiring
+├── foodsearch.js       # bundled-table search + Open Food Facts client
+├── scanner.js          # camera + barcode decoding
+├── foods.js            # GENERATED — see scripts/gen_foods.py
+├── vendor/zxing.min.js # vendored @zxing/library 0.21.3 UMD (~336 KB, ~90 KB gzipped)
+├── styles.css
+└── sw.js               # offline shell — bump CACHE when shell files change
+```
+
+**Why ZXing is vendored:** Safari has no `BarcodeDetector` API, so iOS needs a JS
+decoder. `scanner.js` uses the native detector where it exists (Chrome, Edge,
+Android) and only loads ZXing otherwise — lazily, on first scan, so page load
+never pays for it. It's committed rather than pulled from a CDN so the app stays
+offline-capable and dependency-free.
+
+> ⚠️ `sw.js` serves same-origin GETs **cache-first**, so any change to
+> `index.html` / `app.js` / `styles.css` / the new modules needs `CACHE` bumped
+> (`foodie-v2` → `foodie-v3`) or returning users keep the old build.
+
 ---
 
 ## Alternatives that could improve the app
@@ -122,18 +203,17 @@ GitHub Pages, Cloudflare Pages, Netlify, Vercel). Then in Safari:
 The app is deliberately free and self-contained. Here's a menu of upgrades,
 grouped by what they buy you. **(free tier)** = has a no-cost way to start.
 
-### 1. Food database & barcode scanning (biggest UX win)
-Stop typing calories — look them up.
+### 1. ~~Food database & barcode scanning~~ ✅ done
+Shipped — see [Food data](#food-data) above. Bundled common foods + Open Food
+Facts, with VisionKit scanning on iOS and ZXing in the PWA.
+
+Still open if you want to go further:
 
 | Option | Cost | Notes |
 | --- | --- | --- |
-| **Open Food Facts API** | **Free / open** | Huge crowd-sourced product DB with barcodes & macros, no key. Best free upgrade. |
-| **USDA FoodData Central** | **Free (key)** | Authoritative US nutrition data. |
+| **USDA FoodData Central** | **Free (key)** | Authoritative generic foods, far beyond the bundled 145. Needs a key embedded in the client. |
 | **Nutritionix API** | (free tier) | Natural-language logging ("2 eggs and toast") + restaurant items. |
 | **Edamam / FatSecret** | (free tier) | Recipe/food parsing, large branded DBs. |
-
-On iOS, barcode scanning is **free & native** via **VisionKit `DataScannerViewController`**
-or **AVFoundation** metadata capture — no third-party SDK needed.
 
 ### 2. Apple platform integrations (you have the Developer account — use it)
 - **HealthKit** — read weight/activity, write nutrition (energy + macros) back to
@@ -171,8 +251,8 @@ Only needed if you want non-iCloud accounts or an Android/web client too:
 - **TestFlight** (free with your account) — beta distribution before release.
 - **Fastlane** (free) — automate screenshots, signing, and App Store uploads.
 
-### Suggested first three upgrades
-1. **Open Food Facts + VisionKit barcode scan** — kills manual entry (free).
+### Suggested next upgrades
+1. ~~**Open Food Facts + VisionKit barcode scan**~~ — done.
 2. **HealthKit + iCloud (SwiftData + CloudKit)** — native sync & Health integration (free).
 3. **Swift Charts** — trends and history, zero dependencies (free).
 

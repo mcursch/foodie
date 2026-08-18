@@ -35,5 +35,7 @@ targets:
         # Declares the app exempt from export-compliance questions. Without this,
         # every TestFlight/App Store build stalls on "Missing Compliance".
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: "NO"
+        # Shown in the camera-permission prompt the first time you tap Scan.
+        INFOPLIST_KEY_NSCameraUsageDescription: "Foodie uses the camera to scan product barcodes so it can fill in calories and macros for you."
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_UILaunchScreen_Generation: "YES"

@@ -41,10 +41,24 @@ struct SettingsView: View {
                     }
                 }
 
+                Section("Food data") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Product search and barcode lookups use Open Food Facts, "
+                             + "a free open database. Only your search text or the scanned "
+                             + "barcode is sent — never your food log.")
+                        Link("openfoodfacts.org", destination: URL(string: "https://world.openfoodfacts.org")!)
+                        Text("Product data © Open Food Facts contributors, licensed under the "
+                             + "Open Database License (ODbL). Common-food values are from USDA "
+                             + "FoodData Central and are bundled in the app.")
+                    }
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                }
+
                 Section {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Foodie").font(.footnote.weight(.semibold))
-                        Text("Free & offline. Your data stays on this device.")
+                        Text("Free. Your food log stays on this device.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
                 }
